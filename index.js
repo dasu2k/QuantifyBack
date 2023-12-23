@@ -25,7 +25,7 @@ app.get("/" , (req,res)=>{
 })
 
 app.get("/food",(req,res)=>{
-    const q="SELECT * FROM food WHERE DATE(logged_at) = CURDATE()";
+    const q="SELECT * FROM food";
 
     db.query(q,(err,data)=>{
         if(err){
@@ -52,17 +52,3 @@ app.post("/food",(req,res)=>{
 })
 
 
-app.post("/foodMongo", async (req,res)=>{
-    const data = req.body;
-    try{
-        await data.save();
-    }
-    catch(err){
-        console.log(err);
-    }
-})
-
-app.get("/foodMongo" ,(req,res) =>{
-    const data = res.body;
-    return data;
-})
