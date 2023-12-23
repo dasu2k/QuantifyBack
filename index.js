@@ -25,7 +25,7 @@ app.get("/" , (req,res)=>{
 })
 
 app.get("/food",(req,res)=>{
-    const q="SELECT * FROM food";
+    const q="SELECT * FROM food WHERE DATE(logged_at) = CURDATE()";
 
     db.query(q,(err,data)=>{
         if(err){
