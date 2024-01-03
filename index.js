@@ -13,7 +13,7 @@ app.use(express.json());
 
 const db = mysql.createConnection({
     user:'root',
-    password:'chicken',
+    password:'password',
     database:'quantify',
     host:'localhost',
     port:'3306'
@@ -47,23 +47,23 @@ app.get("/food",(req,res)=>{
 
 //inserting new food data 
 app.post("/food",(req,res)=>{
-    const {name,calories,protein,email} = req.body;
+    const {name,calories,protein} = req.body;
     
     const userFinder = "SELECT * FROM users WHERE email = ?";
-    let user;
-    db.query(userFinder,[email] , (err,data)=>{
+    let userid;
+    db.query(userFinder,[req.data.email] , (err,data)=>{
         if(err){
             console.log(err);
         }
         else{
-            user=Object.values(JSON.parse(JSON.stringify(data)));
-            console.log(user);
+            userid=data.userid;
+            console.log(userid);
         }
     })
 
-    const q="INSERT INTO food (name,calories,protein) VALUES (?,?,?)";
+    const q="INSERT INTO food (userid,name,calories,protein) VALUES (?,?,?,?)";
     
-    db.query(q,[name,calories,protein],(err,data)=>{
+    db.query(q,[userid,name,calories,protein],(err,data)=>{
         if(err){
             res.json(err);
         }
@@ -92,11 +92,13 @@ app.post("/user" , async (req,res) =>{
     })
 })
 
+
 //login authentication
 app.post("/login",(req,res)=>{
     const token = jwt.sign(req.body.email , key);
     let dataTobeSent = {
         token:'',
+        userid:null,
         message:''
     }
     console.log("entered password:"+req.body.password);
@@ -107,7 +109,10 @@ app.post("/login",(req,res)=>{
     
     db.query(query,[req.body.email], async (err,data)=>{
         if(err){
-            res.json(err);
+            res.json({
+                message:err.code,
+                token:null
+            });
         }
         else{
             if(data.length > 0){
@@ -125,7 +130,7 @@ app.post("/login",(req,res)=>{
                 }
                 else{
                     dataTobeSent.token=null;
-                    dataTobeSent.message = "wrong password"
+                    dataTobeSent.message = "wrong password";
                     res.json(dataTobeSent);
                 }
             }
