@@ -8,12 +8,13 @@ const app = express();
 
 
 const key="guts";
+
 app.use(cors());
 app.use(express.json());
 
 const db = mysql.createConnection({
     user:'root',
-    password:'password',
+    password:'chicken',
     database:'quantify',
     host:'localhost',
     port:'3306'
@@ -32,9 +33,22 @@ app.get("/" , (req,res)=>{
 
 //fetch food entries
 app.get("/food",(req,res)=>{
-    const q="SELECT * FROM food WHERE DATE(logged_at) = CURDATE()";
+    
+    const tokenRaw = req.header('Authorization');
 
-    db.query(q,(err,data)=>{
+    if(!tokenRaw){
+       return res.json("You are unauthorized");
+    }
+
+    const [,token] = tokenRaw.split(' ');
+
+    const tokenData = jwt.verify(token,key);
+    
+    console.log("recieved token for food get request :" + tokenData);
+
+    const q="SELECT * FROM food WHERE DATE(logged_at) = CURDATE() AND email = (?) ";
+
+    db.query(q,tokenData,(err,data)=>{
         if(err){
             return res.json(err);
         }
@@ -48,22 +62,18 @@ app.get("/food",(req,res)=>{
 //inserting new food data 
 app.post("/food",(req,res)=>{
     const {name,calories,protein} = req.body;
-    
-    const userFinder = "SELECT * FROM users WHERE email = ?";
-    let userid;
-    db.query(userFinder,[req.data.email] , (err,data)=>{
-        if(err){
-            console.log(err);
-        }
-        else{
-            userid=data.userid;
-            console.log(userid);
-        }
-    })
+    const tokenRaw = req.header('Authorization');
+    if(!tokenRaw){
+        return res.json("Unauthorized");
+    }
 
-    const q="INSERT INTO food (userid,name,calories,protein) VALUES (?,?,?,?)";
+    [,token] = tokenRaw.split(' ');
+
+    const tokenData = jwt.verify(token,key);
+
+    const q="INSERT INTO food (name,calories,protein,email) VALUES (?,?,?,?)";
     
-    db.query(q,[userid,name,calories,protein],(err,data)=>{
+    db.query(q,[name,calories,protein,tokenData],(err,data)=>{
         if(err){
             res.json(err);
         }
