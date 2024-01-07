@@ -1,28 +1,41 @@
 const express = require('express');
 
-const mysql = require('mysql');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
+
 const app = express();
-
-
-const key="guts";
 
 app.use(cors());
 app.use(express.json());
 
-const db = mysql.createConnection({
-    user:'root',
-    password:'chicken',
-    database:'quantify',
-    host:'localhost',
-    port:'3306'
+//mongoose connection setup
+const mongoose = require('mongoose');
+
+const URI = "mongodb+srv://dasu:guts100k@cluster0.y4xtr77.mongodb.net/quantify?retryWrites=true&w=majority";
+
+mongoose.connect(URI, {
+    useNewUrlParser : true,
+    useUnifiedTopology : true
+}).then(()=>{
+    console.log("successfully connected to mongodb");
+}).catch((err)=>{
+    console.log(err);
 })
+
+const foodModel = require('./Food');
+const User = require('./User');
+const key="guts";
+
+
+const mongodb = mongoose.connection;
+
 
 app.listen(6969 , ()=>{
     console.log("backend up on port 6969");
 })
+
+
 
 
 
@@ -31,31 +44,22 @@ app.get("/" , (req,res)=>{
 })
 
 
+
+
 //fetch food entries
-app.get("/food",(req,res)=>{
-    
-    const tokenRaw = req.header('Authorization');
-
-    if(!tokenRaw){
-       return res.json("You are unauthorized");
-    }
-
+app.get("/food",async (req,res)=>{
+    const tokenRaw = req.headers.authorization;
     const [,token] = tokenRaw.split(' ');
+    const emailFromToken = jwt.verify(token , key);
 
-    const tokenData = jwt.verify(token,key);
-    
-    console.log("recieved token for food get request :" + tokenData);
-
-    const q="SELECT * FROM food WHERE DATE(logged_at) = CURDATE() AND email = (?) ";
-
-    db.query(q,tokenData,(err,data)=>{
-        if(err){
-            return res.json(err);
-        }
-        else{
-            return res.json(data);
-        }
-    })
+    try{
+        const foodData = await foodModel.find({
+            email : emailFromToken
+        })
+        res.json(foodData);
+    }catch(err){
+        res.json(err);
+    }
 })
 
 
@@ -70,85 +74,92 @@ app.post("/food",(req,res)=>{
     [,token] = tokenRaw.split(' ');
 
     const tokenData = jwt.verify(token,key);
-
-    const q="INSERT INTO food (name,calories,protein,email) VALUES (?,?,?,?)";
+    try{
+        const newFood = new foodModel({
+            email:tokenData,
+            name:name,
+            calories:calories,
+            protein:protein
+        })
+        const response = newFood.save();
+        return res.json("saved data" + response);
+    }catch(err){
+        return res.json(err);
+    }
     
-    db.query(q,[name,calories,protein,tokenData],(err,data)=>{
-        if(err){
-            res.json(err);
-        }
-        else{
-            res.json("succesfully inserted data");
-        }
-    })
 })
-
 
 
 //regitration 
 app.post("/user" , async (req,res) =>{
     let {username , password , email} = req.body;
-    console.log("password being hashed: " + password);
-    let password1 = await bcrypt.hash(password,10);
-    const q = "INSERT INTO users (username,password,email) VALUES (?,?,?)";
-
-    db.query(q,[username,password1,email] , (err,data) =>{
-        if(err){
-            res.json(err);
-        }
-        else{
-            res.json("inserted new user");
-        }
-    })
+    try{
+        password = await bcrypt.hash(password,10);
+        const newUser = new User({
+            email:email,
+            username:username,
+            password:password
+        });
+        const response = newUser.save();
+        res.json("saved new user " + response);
+    }catch(err){
+        console.log(err);
+    }
 })
 
+//fetch the user details
+app.get('/user' ,async (req,res)=>{
+    let token = req.headers.authorization;
+    [,token] = token.split(' ');
+    
+    
+    try{
+        const email = jwt.verify(token , key);
+        let user = await User.find({
+            email:email
+        })
+        if(user)
+        {
+            user.password='yourmom';
+            res.json(user);
+        }
+            
+    }catch(err){
+        res.json(err);
+        console.log(err);
+    }
+})
 
 //login authentication
-app.post("/login",(req,res)=>{
+app.post("/login",async(req,res)=>{
     const token = jwt.sign(req.body.email , key);
-    let dataTobeSent = {
-        token:'',
-        userid:null,
-        message:''
-    }
-    console.log("entered password:"+req.body.password);
-    console.log("entered email:"+req.body.email);
+     
+    //console.log("entered password:"+req.body.password);
+    //console.log("entered email:"+req.body.email);
 
-    const query = "SELECT * FROM users WHERE email = (?)";
-    
-    
-    db.query(query,[req.body.email], async (err,data)=>{
-        if(err){
-            res.json({
-                message:err.code,
-                token:null
+    try{
+        const users = await User.find({
+            email : req.body.email,
+        });
+
+        if(users.length > 0){
+            //console.log("all the users with given email:" + users);
+            if(bcrypt.compareSync(req.body.password,users[0].password)){
+                return res.json({
+                    token:token,
+                    message:"succesfully logged in"
+                });
+            }
+            return res.json({
+                message:"password wrong"
             });
         }
         else{
-            if(data.length > 0){
-                console.log("password in db " + data[0].password);
-                console.log("comparing db stored hashed pass and " + req.body.password);
-                const isPassValid = await bcrypt.compare(req.body.password , data[0].password);
-
-                console.log("comparision result:" , isPassValid);
-
-                if(isPassValid)
-                {
-                    dataTobeSent.token=token;
-                    dataTobeSent.message = "welcome "+ data[0].username;
-                    res.json(dataTobeSent);
-                }
-                else{
-                    dataTobeSent.token=null;
-                    dataTobeSent.message = "wrong password";
-                    res.json(dataTobeSent);
-                }
-            }
-            else{
-                dataTobeSent.token=null;
-                dataTobeSent.message = "user does'nt exist";
-                res.json(dataTobeSent);
-            }
+            return res.json({
+                message:"No user found"
+            });
         }
-    })
+    }catch(err){
+        console.log(err);
+    }
 })
