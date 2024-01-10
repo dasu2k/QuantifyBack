@@ -51,10 +51,12 @@ app.get("/food",async (req,res)=>{
     const tokenRaw = req.headers.authorization;
     const [,token] = tokenRaw.split(' ');
     const emailFromToken = jwt.verify(token , key);
-
+    let date = new Date();
+    date.setHours(0,0,0,0);
     try{
         const foodData = await foodModel.find({
-            email : emailFromToken
+            email : emailFromToken,
+            logged_at: date
         })
         res.json(foodData);
     }catch(err){
