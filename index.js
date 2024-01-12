@@ -102,6 +102,7 @@ app.post("/user" , async (req,res) =>{
             username:username,
             password:password
         });
+        
         if(User.find({email:email}).length < 1)
         {
             const response = newUser.save();
