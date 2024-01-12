@@ -102,8 +102,16 @@ app.post("/user" , async (req,res) =>{
             username:username,
             password:password
         });
-        const response = newUser.save();
-        res.json("saved new user " + response);
+        if(User.find({email:email}).length < 1)
+        {
+            const response = newUser.save();
+            res.json("saved new user " + response);
+        }
+        else{
+            res.json("email already exists");
+        }
+        
+        
     }catch(err){
         console.log(err);
     }
