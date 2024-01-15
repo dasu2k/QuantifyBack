@@ -158,7 +158,8 @@ app.post("/login",async(req,res)=>{
             if(bcrypt.compareSync(req.body.password,users[0].password)){
                 return res.json({
                     token:token,
-                    message:"succesfully logged in"
+                    message:"succesfully logged in",
+                    username:users[0].username
                 });
             }
             return res.json({
