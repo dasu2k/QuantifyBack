@@ -132,7 +132,7 @@ app.get('/user' ,async (req,res)=>{
         if(user)
         {
             user.password='yourmom';
-            res.json(user);
+            res.json({...user , password:"cheeky bastard"});
         }
             
     }catch(err){
